@@ -31,10 +31,11 @@ def search_vehicles(
     min_price: float | None = Query(default=None, ge=0),
     max_price: float | None = Query(default=None, ge=0),
     in_stock: bool = False,
+    q: str | None = None,
     service: VehicleService = Depends(get_vehicle_service),
 ):
     return service.search(
-        VehicleFilters(make, model, category, min_price, max_price, in_stock)
+        VehicleFilters(make, model, category, min_price, max_price, in_stock, q)
     )
 
 

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from sqlalchemy import update
+from sqlalchemy import or_, update
 from sqlalchemy.orm import Session
 
 from app.errors import InvalidPriceRangeError, OutOfStockError, VehicleNotFoundError
@@ -18,6 +18,7 @@ class VehicleFilters:
     min_price: float | None = None
     max_price: float | None = None
     in_stock: bool = False
+    q: str | None = None  # free text: matches make OR model OR category
 
 
 def _contains(text: str) -> str:
@@ -49,6 +50,15 @@ class VehicleService:
         ):
             if value and value.strip():
                 query = query.filter(column.ilike(_contains(value), escape="\\"))
+        if filters.q and filters.q.strip():
+            pattern = _contains(filters.q)
+            query = query.filter(
+                or_(
+                    Vehicle.make.ilike(pattern, escape="\\"),
+                    Vehicle.model.ilike(pattern, escape="\\"),
+                    Vehicle.category.ilike(pattern, escape="\\"),
+                )
+            )
         if filters.min_price is not None:
             query = query.filter(Vehicle.price >= filters.min_price)
         if filters.max_price is not None:
