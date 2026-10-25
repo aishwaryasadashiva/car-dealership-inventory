@@ -6,3 +6,7 @@ __pycache__/
 *.db
 .env
 .DS_Store
+
+# Frontend dependencies and build output
+node_modules/
+dist/
