@@ -9,18 +9,27 @@ import os
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret-key-for-local-tests-0123456789")
 
 import pytest
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import app.main as main_module
+import app.auth as auth_module
 from app.auth import hash_password
 from app.dependencies import get_db as dependencies_get_db
 from app.main import app
 from app.models import Base, User
 
 PASSWORD = "StrongPassword123!"
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hashing(monkeypatch):
+    """Argon2 is deliberately slow; use cheap parameters so the suite stays fast."""
+    cheap = PasswordHash((Argon2Hasher(time_cost=1, memory_cost=1024, parallelism=1),))
+    monkeypatch.setattr(auth_module, "password_hash", cheap)
 
 
 @pytest.fixture
@@ -55,9 +64,6 @@ def client(session_factory):
             db.close()
 
     app.dependency_overrides[dependencies_get_db] = override_get_db
-    # The first version of the app defined a second get_db in main.py.
-    if hasattr(main_module, "get_db"):
-        app.dependency_overrides[main_module.get_db] = override_get_db
 
     with TestClient(app) as test_client:
         yield test_client
