@@ -139,7 +139,8 @@ The earliest commits are the original ChatGPT-assisted first version (auth tests
 ## My AI Usage
 
 **Tools:** ChatGPT (OpenAI) for the first version, and Claude (Anthropic) for a review-and-improve pass afterwards.
-Every commit that involved AI carries a `Co-authored-by:` trailer. The raw conversations are in [PROMPTS.md](PROMPTS.md).
+Every commit made with Claude carries a `Co-authored-by:` trailer. My first ChatGPT-assisted commits (the oldest ones
+in the history) do not, because I only added that convention afterwards. The raw conversations are in [PROMPTS.md](PROMPTS.md).
 
 **How I used them**
 
@@ -156,13 +157,21 @@ Every commit that involved AI carries a `Co-authored-by:` trailer. The raw conve
 
 **Reflection**
 
-AI was fastest at boilerplate and at spotting what a brief implies but does not say. It was also confidently
-wrong in places: the first version's README claimed a tested, complete system while the admin features had no UI
-and the auth tests polluted the real database. The things that actually mattered — whether customers may edit
-prices, how to avoid overselling the last car, where the role check must live, how to attribute photos — are
-judgement calls, so I wrote them down with their trade-offs in `docs/DECISIONS.md` and verified behaviour by
-running the test suites rather than trusting the generated claims. The main lesson: AI speeds up typing, but
-reviewing, choosing between trade-offs and being able to explain the result stays my job.
+I built the first version with ChatGPT and then asked Claude to review it against the kata brief. That review showed
+gaps I had not noticed: there was no way to create an admin, the frontend had no admin screens at all, any logged-in
+customer could add vehicles, and the search box filtered in the browser instead of using the search endpoint. The first
+README also described the project as complete when it was not, so I learned not to trust AI-written claims without checking them.
+
+I checked the final result by running it myself instead of relying on the generated test report: I ran both test suites,
+seeded the database, and used the app as a customer and as an admin. I confirmed that the photos load, stock decreases
+after a purchase, and sold-out cars have a disabled Purchase button.
+
+I made add and update admin-only even though the brief only says delete and restock, because otherwise a customer could
+change a price and then buy the car at that price. Purchase is a single conditional UPDATE, so two buyers cannot both
+take the last car and stock can never go below zero. I wrote these decisions and their trade-offs in docs/DECISIONS.md.
+
+AI saved me a lot of typing, but it did not decide what the system should do or whether it was correct. That stayed my
+job. Next I would add database migrations, PostgreSQL, order history and a real browser end-to-end test.
 
 ## Photo credits
 
