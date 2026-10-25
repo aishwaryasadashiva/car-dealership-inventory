@@ -19,6 +19,8 @@ class Vehicle(Base):
     quantity_in_stock: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
+    # Optional hand-picked photo. When empty the UI looks one up automatically.
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class User(Base):

@@ -1,17 +1,14 @@
+"""Password hashing and JWT access-token helpers."""
 
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from pwdlib import PasswordHash
 from fastapi import HTTPException, status
+from pwdlib import PasswordHash
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError("Set JWT_SECRET_KEY before starting the application")
+from app.config import settings
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_MINUTES = 30
 password_hash = PasswordHash.recommended()
 
 
@@ -23,35 +20,23 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
 
-def create_access_token(user_id: int) -> str:
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        minutes=ACCESS_TOKEN_MINUTES
-    )
+def create_access_token(user_id: int, expires_delta: timedelta | None = None) -> str:
+    lifetime = expires_delta or timedelta(minutes=settings.access_token_minutes)
+    expires_at = datetime.now(timezone.utc) + lifetime
     return jwt.encode(
         {"sub": str(user_id), "exp": expires_at},
-        SECRET_KEY,
+        settings.jwt_secret_key,
         algorithm=ALGORITHM,
     )
 
 
 def decode_access_token(token: str) -> int:
     try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-        )
-        user_id = payload.get("sub")
-
-        if user_id is None:
-            raise ValueError("Missing subject")
-
-        return int(user_id)
-
-    except (jwt.InvalidTokenError, ValueError, TypeError):
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[ALGORITHM])
+        return int(payload["sub"])
+    except (jwt.InvalidTokenError, KeyError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-

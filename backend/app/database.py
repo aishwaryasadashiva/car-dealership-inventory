@@ -1,21 +1,18 @@
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.config import settings
 from app.models import Base
 
-DATABASE_URL = "sqlite:///./inventory.db"
-
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
+# SQLite needs this flag because FastAPI may use a connection from another thread.
+_connect_args = (
+    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 )
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-)
+engine = create_engine(settings.database_url, connect_args=_connect_args)
 
-def create_tables():
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def create_tables() -> None:
     Base.metadata.create_all(bind=engine)

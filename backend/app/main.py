@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from sqlalchemy import update
@@ -14,10 +13,18 @@ from app.auth import (
     hash_password,
     verify_password,
 )
+from app.config import settings
 from app.database import SessionLocal, create_tables
 from app.dependencies import get_current_user
 from app.models import User, Vehicle
-from app.schemas import TokenResponse, UserRegister, UserResponse
+from app.schemas import (
+    RestockRequest,
+    TokenResponse,
+    UserRegister,
+    UserResponse,
+    VehicleInput,
+    VehicleResponse,
+)
 
 
 @asynccontextmanager
@@ -32,10 +39,7 @@ app = FastAPI(title="Car Dealership Inventory API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,23 +54,14 @@ def get_db():
         db.close()
 
 
-class VehicleCreate(BaseModel):
-    make: str = Field(min_length=1, max_length=100)
-    model: str = Field(min_length=1, max_length=100)
-    category: str = Field(min_length=1, max_length=50)
-    price: float = Field(gt=0)
-    quantity_in_stock: int = Field(ge=0)
+def like_pattern(text: str) -> str:
+    """Build a contains-pattern, escaping LIKE wildcards typed by the user."""
+    escaped = text.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
 
 
 def vehicle_to_dict(vehicle: Vehicle):
-    return {
-        "id": vehicle.id,
-        "make": vehicle.make,
-        "model": vehicle.model,
-        "category": vehicle.category,
-        "price": vehicle.price,
-        "quantity_in_stock": vehicle.quantity_in_stock,
-    }
+    return VehicleResponse.model_validate(vehicle).model_dump()
 
 
 @app.post(
@@ -113,6 +108,11 @@ def login_user(
     }
 
 
+@app.get("/api/auth/me", response_model=UserResponse)
+def read_current_user(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
 @app.get("/api/vehicles")
 def list_vehicles(
     db: Session = Depends(get_db),
@@ -129,6 +129,7 @@ def search_vehicles(
     category: str | None = None,
     min_price: float | None = Query(default=None, ge=0),
     max_price: float | None = Query(default=None, ge=0),
+    in_stock: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -145,13 +146,13 @@ def search_vehicles(
     query = db.query(Vehicle)
 
     if make:
-        query = query.filter(Vehicle.make.ilike(f"%{make.strip()}%"))
+        query = query.filter(Vehicle.make.ilike(like_pattern(make), escape="\\"))
 
     if model:
-        query = query.filter(Vehicle.model.ilike(f"%{model.strip()}%"))
+        query = query.filter(Vehicle.model.ilike(like_pattern(model), escape="\\"))
 
     if category:
-        query = query.filter(Vehicle.category.ilike(f"%{category.strip()}%"))
+        query = query.filter(Vehicle.category.ilike(like_pattern(category), escape="\\"))
 
     if min_price is not None:
         query = query.filter(Vehicle.price >= min_price)
@@ -159,14 +160,18 @@ def search_vehicles(
     if max_price is not None:
         query = query.filter(Vehicle.price <= max_price)
 
+    if in_stock:
+        query = query.filter(Vehicle.quantity_in_stock > 0)
+
     vehicles = query.all()
     return [vehicle_to_dict(vehicle) for vehicle in vehicles]
 
+
 @app.post("/api/vehicles", status_code=status.HTTP_201_CREATED)
 def create_vehicle(
-    payload: VehicleCreate,
+    payload: VehicleInput,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     vehicle = Vehicle(**payload.model_dump())
     db.add(vehicle)
@@ -218,8 +223,6 @@ def purchase_vehicle(
 
 
 
-class RestockRequest(BaseModel):
-    quantity: int = Field(gt=0)
 
 
 
@@ -268,7 +271,7 @@ def delete_vehicle(
 @app.put("/api/vehicles/{vehicle_id}")
 def update_vehicle(
     vehicle_id: int,
-    payload: VehicleCreate,
+    payload: VehicleInput,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
