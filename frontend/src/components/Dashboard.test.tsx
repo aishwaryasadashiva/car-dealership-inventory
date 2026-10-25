@@ -23,8 +23,8 @@ const PUNCH = car(2, 'Punch', 0, 'Hatchback')
 const customer: User = { id: 1, email: 'c@example.com', is_admin: false }
 const admin: User = { id: 2, email: 'a@example.com', is_admin: true }
 
-function renderDashboard(user: User) {
-  return render(<Dashboard token="t" user={user} onLogout={vi.fn()} onSessionExpired={vi.fn()} />)
+function renderDashboard(user: User, onSessionExpired = vi.fn()) {
+  return render(<Dashboard token="t" user={user} onLogout={vi.fn()} onSessionExpired={onSessionExpired} />)
 }
 
 beforeEach(() => {
@@ -170,5 +170,27 @@ describe('Dashboard', () => {
 
     const dialog = await screen.findByRole('dialog', { name: /Nexon details/ })
     expect(within(dialog).getByTestId('emi-monthly')).toHaveTextContent(/₹/)
+  })
+
+  it('lets an admin restock a sold-out car', async () => {
+    vi.mocked(api.restockVehicle).mockResolvedValue({ ...PUNCH, quantity_in_stock: 5 })
+    renderDashboard(admin)
+    await screen.findByRole('heading', { name: 'Punch' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Restock Punch' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Restock vehicle' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add stock' }))
+
+    await waitFor(() => expect(api.restockVehicle).toHaveBeenCalledWith('t', 2, 5))
+  })
+
+  it('returns to the login screen when the session has expired', async () => {
+    const { ApiError } = await vi.importActual<typeof import('../api/client')>('../api/client')
+    const onSessionExpired = vi.fn()
+    vi.mocked(api.listVehicles).mockRejectedValue(new ApiError(401, 'Invalid or expired access token'))
+
+    renderDashboard(customer, onSessionExpired)
+
+    await waitFor(() => expect(onSessionExpired).toHaveBeenCalled())
   })
 })
