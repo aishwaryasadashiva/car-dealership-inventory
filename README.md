@@ -1,89 +1,49 @@
-# Car Dealership Inventory System
+# DriveSpace — Car Dealership Inventory System
 
-## About the Project
+A full-stack inventory app for a car dealership, built as a TDD kata. Customers register, browse a live
+inventory with real car photos, search and filter it, estimate an EMI and buy a car. Admins add, edit,
+restock and delete vehicles from the same UI.
 
-This project is a car dealership inventory system that helps manage vehicles available for sale. Users can register, log in, view available vehicles, search the inventory, and purchase vehicles. When a purchase is made, the available stock is updated automatically.
+* **Backend:** Python · FastAPI · SQLAlchemy · SQLite (a real on-disk database) · JWT auth · Argon2 password hashing
+* **Frontend:** React 19 · TypeScript · Tailwind CSS 4 · Vite
+* **Tests:** pytest (72) and Vitest (48) — see [TEST_REPORT.md](TEST_REPORT.md)
+* **Why it is built this way:** [docs/DECISIONS.md](docs/DECISIONS.md) — requirement interpretation, trade-offs, known limitations
 
-The system also supports admin-only operations for updating vehicle details, restocking vehicles, and removing vehicles from the inventory.
+## What makes it more than a CRUD demo
 
-The backend is built using FastAPI and SQLite, with SQLAlchemy for database operations. The frontend uses React and TypeScript, and pytest is used to test backend functionality.
+* **Atomic purchases** — stock check and decrement are one conditional `UPDATE`, so two buyers can never take the last car and stock can never go negative.
+* **Real role enforcement** — customers get `403` on create/update/delete/restock at the API, not just hidden buttons. Registration can never grant admin.
+* **Real car photos** with attribution — looked up from Wikipedia at runtime; admins can override with their own URL; a drawn silhouette is the fallback.
+* **EMI calculator** on every vehicle (pure, unit-tested function).
+* **Backend-driven search** — free text, category, price range and in-stock filter all go through `GET /api/vehicles/search` (debounced, stale-response safe).
+* **Layered backend** — thin routers, framework-free services, one domain-error handler.
 
-## Technologies Used
+## Run it locally
 
-- Python and FastAPI
-- SQLite and SQLAlchemy
-- React and TypeScript
-- Vite and Tailwind CSS
-- Pytest
+Prerequisites: Python 3.11+, Node 20+, npm.
 
-## Main Features
-
-- User registration and login
-- Authenticated access to the vehicle inventory
-- Search vehicles by make and price range
-- Purchase vehicles and automatically update stock
-- Prevent purchases when a vehicle is out of stock
-- Admin-only vehicle restocking, updating, and deletion
-- Automated tests for backend API functionality
-
-## Project Structure
-
-```text
-car-dealership-inventory/
-├── backend/
-│   ├── app/
-│   ├── tests/
-│   └── requirements.txt
-├── frontend/
-├── screenshots/
-├── README.md
-├── PROMPTS.md
-└── TEST_REPORT.md
-```
-
-## How to Run the Project
-
-### Prerequisites
-
-Make sure Python 3, Node.js, and npm are installed.
-
-### Backend Setup
-
-From the project root, create and activate a virtual environment:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-Install the backend dependencies:
+### 1. Backend
 
 ```bash
 cd backend
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
 
-Set a private JWT secret for your local environment. Do not commit your real secret to Git:
+# optional but recommended; if unset, a random secret is generated (logins reset on restart)
+export JWT_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
 
-```bash
-export JWT_SECRET_KEY="your-local-secret"
-```
+# creates the admin account and 12 demo vehicles (safe to re-run)
+python -m app.seed
 
-Start the backend server from the `backend` directory:
-
-```bash
 uvicorn app.main:app --reload
 ```
 
-The backend runs at `http://127.0.0.1:8000`.
+API: <http://127.0.0.1:8000> · interactive docs: <http://127.0.0.1:8000/docs>
 
-FastAPI's interactive API documentation is available at `http://127.0.0.1:8000/docs`.
+> **Upgrading from an earlier version of this repo?** The `vehicles` table gained an `image_url` column.
+> Delete the old `backend/inventory.db` once, then run `python -m app.seed` again.
 
-### Frontend Setup
-
-Open a second terminal at the project root. If you activated the virtual environment in the first terminal, you can leave that terminal running the backend.
-
-Run:
+### 2. Frontend (second terminal)
 
 ```bash
 cd frontend
@@ -91,79 +51,125 @@ npm install
 npm run dev
 ```
 
-Open the local URL displayed in the terminal. Vite typically uses `http://localhost:5173`, but it may select another port if that one is already occupied.
+Open <http://localhost:5173>.
 
-### Running the Tests
+### Accounts
 
-Activate the virtual environment if it is not already active. From the project root, run:
+| Role | How to get it |
+|---|---|
+| **Admin** | Created by `python -m app.seed` → `admin@drivespace.dev` / `Admin@12345` (override with `ADMIN_EMAIL` / `ADMIN_PASSWORD`) |
+| **Customer** | Click *Create an account* on the login page |
 
-```bash
-cd backend
-python3 -m pytest -q
-```
+### Configuration
 
-The backend test suite was verified locally with 14 passing tests, zero failures, and one deprecation warning from the Starlette test-client integration.
-
-The tests use a separate in-memory SQLite database so that test data remains isolated from the application's regular database.
-
-### Verifying the Frontend
-
-From the `frontend` directory, run:
-
-```bash
-npm run build
-npm run lint
-```
-
-Both commands completed successfully during local verification.
-
-## API Endpoints
-
-| Method | Endpoint | Purpose |
+| Variable | Used by | Default |
 |---|---|---|
-| POST | `/api/auth/register` | Register a new user |
-| POST | `/api/auth/login` | Log in |
-| GET | `/api/vehicles` | View vehicles |
-| GET | `/api/vehicles/search` | Search vehicles |
-| POST | `/api/vehicles` | Add a vehicle |
-| POST | `/api/vehicles/{vehicle_id}/purchase` | Purchase a vehicle |
-| POST | `/api/vehicles/{vehicle_id}/restock` | Restock a vehicle (admin only) |
-| PUT | `/api/vehicles/{vehicle_id}` | Update vehicle details (admin only) |
-| DELETE | `/api/vehicles/{vehicle_id}` | Remove a vehicle (admin only) |
+| `JWT_SECRET_KEY` | backend | random per process (with a warning) |
+| `DATABASE_URL` | backend | `sqlite:///./inventory.db` |
+| `CORS_ORIGINS` | backend | `http://localhost:5173,http://127.0.0.1:5173` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | `python -m app.seed` | `admin@drivespace.dev`, `Admin@12345` |
+| `VITE_API_URL` | frontend | `http://127.0.0.1:8000/api` |
 
-Protected endpoints require authentication. Administrative operations are restricted to users with administrator privileges.
+## Run the tests
 
-## Database
+```bash
+cd backend  && python -m pytest -q --cov=app          # 72 tests, ~96 % coverage
+cd frontend && npm test && npm run lint && npm run build   # 48 tests
+```
 
-The application uses SQLite to store vehicle and user information. SQLAlchemy handles database operations.
+## API
 
-The test suite uses a separate in-memory database, allowing tests to run without adding test records to the regular application database.
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| POST | `/api/auth/register` | public | Create a customer account |
+| POST | `/api/auth/login` | public | Exchange email + password for a JWT |
+| GET | `/api/auth/me` | user | Current user and role |
+| GET | `/api/vehicles` | user | All vehicles (including sold-out) |
+| GET | `/api/vehicles/search` | user | `q`, `make`, `model`, `category`, `min_price`, `max_price`, `in_stock` |
+| POST | `/api/vehicles` | **admin** | Add a vehicle |
+| PUT | `/api/vehicles/{id}` | **admin** | Update a vehicle |
+| DELETE | `/api/vehicles/{id}` | **admin** | Delete a vehicle |
+| POST | `/api/vehicles/{id}/purchase` | user | Buy one unit (409 when sold out) |
+| POST | `/api/vehicles/{id}/restock` | **admin** | Add units `{ "quantity": n }` |
+
+Each vehicle has a unique `id`, `make`, `model`, `category`, `price`, `quantity_in_stock` and an optional `image_url`.
+
+## Project structure
+
+```text
+backend/app/
+  main.py            app wiring only (CORS, routers, error handler)
+  routers/           HTTP layer: auth.py, vehicles.py
+  services/          business rules: auth_service.py, vehicle_service.py
+  models.py schemas.py errors.py config.py database.py dependencies.py auth.py
+  seed.py            first admin + demo inventory
+backend/tests/       conftest.py (fresh in-memory DB per test) + 4 test modules
+frontend/src/
+  api/               typed fetch client + endpoint functions
+  hooks/             useSession, useInventory, useDebounced, useToasts
+  lib/               emi.ts, format.ts, photo.ts, filters.ts (pure, unit-tested)
+  components/        Dashboard, VehicleCard, FilterBar, DetailsDrawer, forms, modals …
+docs/DECISIONS.md    decisions, trade-offs, limitations
+```
+
+## How TDD shows up in the history
+
+The git log narrates the work (`git log --oneline`):
+
+1. `test: specify admin roles, /me, search, stock and config behaviour (red)` — 14 failing tests + 2 missing modules
+2. `feat: admin roles, /me, photo URLs, safer search, config and seed (green)` — 70 passing
+3. `refactor: split main.py into routers and services` — same tests, untouched, still green
+4. `test: free-text search parameter q …` → `feat: add q …` — a second, smaller red/green cycle
+5. `test(frontend): specify EMI maths, price formatting, photo lookup, vehicle card (red)` → `feat(frontend): … (green)`
+6. `feat(frontend): rebuild the SPA as DriveSpace …` followed by characterization tests for the finished UI
+
+The earliest commits are the original ChatGPT-assisted first version (auth tests, then the API).
 
 ## Screenshots
 
-Screenshots of the application and API documentation are available in the [`screenshots/`](screenshots/) directory:
+| | |
+|---|---|
+| Login | ![Login](screenshots/01-login.png) |
+| Customer dashboard with real photos | ![Dashboard](screenshots/02-dashboard.png) |
+| Search and filters | ![Search](screenshots/03-search.png) |
+| Details drawer with EMI calculator | ![EMI](screenshots/04-details-emi.png) |
+| Admin view (add / edit / restock / delete) | ![Admin](screenshots/05-admin.png) |
+| FastAPI docs | ![API docs](screenshots/06-api-docs.png) |
 
-- `inventory.png` — inventory dashboard
-- `search.png` — vehicle search
-- `purchase.png` — purchase flow
-- `api-docs.png` — FastAPI API documentation
+## My AI Usage
 
-## AI Usage
+**Tools:** ChatGPT (OpenAI) for the first version, and Claude (Anthropic) for a review-and-improve pass afterwards.
+Every commit that involved AI carries a `Co-authored-by:` trailer. The raw conversations are in [PROMPTS.md](PROMPTS.md).
 
-I used AI assistance during development to understand errors, troubleshoot the test setup, and review parts of the implementation and documentation. I reviewed the suggestions and used them to help me work through development issues.
+**How I used them**
 
-The `PROMPTS.md` file contains summaries of the AI assistance used. These summaries are not verbatim conversation transcripts.
+* **ChatGPT — first version.** Helped with the initial FastAPI endpoints and JWT auth, the pytest fixtures
+  and temporary-database setup, debugging the `JWT_SECRET_KEY` import error, and a first React UI and README.
+* **Claude — second pass.** I asked it to review the whole project against the kata brief and improve it. It
+  - found gaps against the brief: no way to create an admin, no admin UI at all, `POST /api/vehicles` open to every
+    customer, search done in the browser instead of through the search endpoint, auth tests writing to the real database;
+  - proposed the layered backend (routers / services / domain errors), the `GET /api/auth/me` endpoint, the
+    `q` and `in_stock` search parameters and the seed command;
+  - wrote the tests first for the new behaviour, then the implementation, then the refactor, committing each stage;
+  - rebuilt the React app (admin tools, EMI calculator, real-photo lookup, accessible modals) and wrote the component tests;
+  - drafted `docs/DECISIONS.md` and the test report from real command output.
 
-## Test Report
+**Reflection**
 
-The [`TEST_REPORT.md`](TEST_REPORT.md) file documents the backend test results, including the number of passing tests and the deprecation warning.
+AI was fastest at boilerplate and at spotting what a brief implies but does not say. It was also confidently
+wrong in places: the first version's README claimed a tested, complete system while the admin features had no UI
+and the auth tests polluted the real database. The things that actually mattered — whether customers may edit
+prices, how to avoid overselling the last car, where the role check must live, how to attribute photos — are
+judgement calls, so I wrote them down with their trade-offs in `docs/DECISIONS.md` and verified behaviour by
+running the test suites rather than trusting the generated claims. The main lesson: AI speeds up typing, but
+reviewing, choosing between trade-offs and being able to explain the result stays my job.
 
-## Current Status
+## Photo credits
 
-The following checks have been completed locally:
+Car photos are fetched at runtime from Wikipedia / Wikimedia Commons and remain the property of their
+contributors under the licences stated on each source page; every photo links back to its article. Prices
+and stock levels in the seed data are illustrative.
 
-- Backend tests: 14 passed, zero failed, one deprecation warning.
-- Frontend production build: passed.
-- Frontend lint: passed.
+## Deployment
 
-These results reflect local verification. The project should also be reviewed against all assignment requirements before submission.
+Not deployed — the project is designed to run locally with the steps above.
