@@ -385,3 +385,23 @@ def test_restock_missing_vehicle_returns_404(client, admin_headers):
     )
 
     assert response.status_code == 404
+
+
+# ------------------------------------------------------- free-text search (q)
+def test_search_q_matches_make_model_or_category(client, customer_headers, make_vehicle):
+    make_vehicle(make="Tata", model="Nexon", category="SUV")
+    make_vehicle(make="Honda", model="City", category="Sedan")
+    make_vehicle(make="Hyundai", model="Creta", category="SUV")
+
+    assert [v["model"] for v in search(client, customer_headers, q="tata").json()] == ["Nexon"]
+    assert [v["model"] for v in search(client, customer_headers, q="city").json()] == ["City"]
+    assert {v["model"] for v in search(client, customer_headers, q="suv").json()} == {"Nexon", "Creta"}
+
+
+def test_search_q_combines_with_other_filters(client, customer_headers, make_vehicle):
+    make_vehicle(model="Cheap", category="SUV", price=500000)
+    make_vehicle(model="Pricey", category="SUV", price=5000000)
+
+    result = search(client, customer_headers, q="suv", max_price=1000000).json()
+
+    assert [v["model"] for v in result] == ["Cheap"]
