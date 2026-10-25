@@ -1,6 +1,5 @@
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-
+import { useCallback, useMemo, useState } from 'react'
 const API = 'http://127.0.0.1:8000/api'
 
 type Vehicle = {
