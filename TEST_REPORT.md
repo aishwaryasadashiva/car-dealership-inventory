@@ -52,4 +52,8 @@ python3 -m pytest -q
 
 ## Conclusion
 
-The latest recorded backend test run completed successfully, with 14 tests passing and no failures. The frontend and remaining submission requirements should be verified separately before the project is submitted.
+## Conclusion
+
+The backend test suite completed successfully, with 14 tests passing, zero failures, and one Starlette deprecation warning.
+
+The frontend production build and ESLint checks were also completed successfully. These results reflect local verification of the project.
