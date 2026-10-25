@@ -1,0 +1,13 @@
+export function Logo({ className = '' }: { className?: string }) {
+  return (
+    <span className={`font-display inline-flex items-center gap-2 text-xl font-bold tracking-tight ${className}`}>
+      <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#f2561d" />
+        <path d="M5 20l3-6c.5-1 1.3-1.5 2.4-1.5h11.2c1 0 1.9.5 2.4 1.5l3 6v3H5z" fill="#fff" />
+        <circle cx="10.5" cy="23" r="2.6" fill="#0b1020" />
+        <circle cx="21.5" cy="23" r="2.6" fill="#0b1020" />
+      </svg>
+      DriveSpace
+    </span>
+  )
+}
