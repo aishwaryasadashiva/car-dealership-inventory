@@ -9,7 +9,7 @@ Original shared conversation: https://chatgpt.com/share/6add785d-3f14-83ec-8f1b-
 
 ## 2. Claude — review and improvement pass (25 October 2026)
 
-Shared conversation: **[paste the claude.ai share link for this conversation here]**
+Shared conversation: https://claude.ai/share/b8b7f819-0156-46d5-8513-78563a1a0db2
 
 The first message I sent in that conversation, verbatim and unedited (dictated by voice; the kata brief and the
 project zip were attached to it):
