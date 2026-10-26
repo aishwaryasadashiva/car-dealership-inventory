@@ -127,6 +127,8 @@ The earliest commits are the original ChatGPT-assisted first version (auth tests
 
 ## Screenshots
 
+Tip: click **Details** on any car to open the EMI calculator.
+
 | | |
 |---|---|
 | Login | ![Login](screenshots/01-login.png) |
