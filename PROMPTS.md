@@ -20,3 +20,5 @@ Claude to review the project against the brief and improve it.
 After submitting, I noticed that an earlier version of this file showed a block of text as the "verbatim" first
 message I sent to Claude. Part of that block was actually written by the AI, not by me. I have removed it. Please
 use the share links above for the real record of what I asked and what the AI replied.
+
+The commit that made this correction (116dc12) was made with help from Claude. I did not add the co-author trailer at that time, so I am recording it here.
